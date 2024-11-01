@@ -32,13 +32,21 @@ common common
         ImportQualifiedPost
     build-depends:
         base >= 4 && < 5,
+        bytestring,
 
 library
     import:           common
     hs-source-dirs:   src
     exposed-modules:
         Vodozemac
-        Vodozemac.Raw
+        Vodozemac.Raw.Account
+        Vodozemac.Raw.Curve25519PublicKey
+        Vodozemac.Raw.Ed25519PublicKey
+        Vodozemac.Raw.Ed25519Signature
+        Vodozemac.Raw.FallbackKey
+        Vodozemac.Raw.KeyId
+    other-modules:
+        Vodozemac.Raw.Util
     extra-libraries:  vodozemac_hs
 
 test-suite spec
