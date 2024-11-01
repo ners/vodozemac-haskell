@@ -1,0 +1,12 @@
+[package]
+name = "vodozemac-hs"
+version = "0.0.1"
+authors = ["ners <ners@gmx.ch>"]
+edition = "2021"
+
+[lib]
+name = "vodozemac_hs"
+crate-type = ["staticlib"]
+
+[dependencies]
+vodozemac = "0.8.1"
