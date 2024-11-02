@@ -9,4 +9,5 @@ name = "vodozemac_hs"
 crate-type = ["staticlib"]
 
 [dependencies]
+serde_json = "1.0.132"
 vodozemac = "0.8.1"

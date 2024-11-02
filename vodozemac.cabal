@@ -20,6 +20,7 @@ common common
     default-language: Haskell2010
     ghc-options:
         -Weverything
+        -Wno-safe
         -Wno-unsafe
         -Wno-missing-safe-haskell-mode
         -Wno-missing-export-lists
@@ -28,9 +29,13 @@ common common
         -Wno-all-missed-specialisations
     default-extensions:
         BlockArguments
+        DerivingStrategies
         ForeignFunctionInterface
         ImportQualifiedPost
+        NoImplicitPrelude
+        ScopedTypeVariables
     build-depends:
+        aeson,
         base >= 4 && < 5,
         bytestring,
 
@@ -38,13 +43,22 @@ library
     import:           common
     hs-source-dirs:   src
     exposed-modules:
-        Vodozemac
+        Vodozemac.Account
+        Vodozemac.Curve25519PublicKey
+        Vodozemac.Ed25519PublicKey
+        Vodozemac.Ed25519Signature
+        Vodozemac.FallbackKey
+        Vodozemac.KeyId
+        Vodozemac.Olm.Message
+        Vodozemac.Olm.Session
         Vodozemac.Raw.Account
         Vodozemac.Raw.Curve25519PublicKey
         Vodozemac.Raw.Ed25519PublicKey
         Vodozemac.Raw.Ed25519Signature
         Vodozemac.Raw.FallbackKey
         Vodozemac.Raw.KeyId
+        Vodozemac.Raw.Olm.Message
+        Vodozemac.Raw.Olm.Session
     other-modules:
         Vodozemac.Raw.Util
     extra-libraries:  vodozemac_hs
