@@ -1,5 +1,6 @@
 module Vodozemac.KeyId where
 
+import Data.ByteString (ByteString)
 import Foreign
 import Vodozemac.Raw.KeyId qualified as Raw (KeyId)
 import Vodozemac.Raw.KeyId qualified as Raw.KeyId
@@ -14,5 +15,5 @@ instance Storable KeyId where
     peek ptr = KeyId <$> peek (castPtr ptr)
     poke ptr (KeyId keyId) = poke (castPtr ptr) keyId
 
-toBase64 :: KeyId -> IO String
-toBase64 (KeyId keyId) = Raw.peekAndFreeCString =<< Raw.KeyId.to_base64 keyId
+toBase64 :: KeyId -> IO ByteString
+toBase64 (KeyId keyId) = Raw.cstringToByteString =<< Raw.KeyId.to_base64 keyId

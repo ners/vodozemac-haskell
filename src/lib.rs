@@ -158,6 +158,13 @@ pub extern "C" fn curve25519publickey_to_base64(ptr: *mut Curve25519PublicKey) -
     copy_str(key.to_base64())
 }
 
+#[no_mangle]
+pub extern "C" fn curve25519publickey_from_base64(ptr: *const u8, len: usize) -> *mut Curve25519PublicKey {
+    let Ok(str) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(ptr, len) }) else { return std::ptr::null_mut(); };
+    let Ok(key) = Curve25519PublicKey::from_base64(str) else { return std::ptr::null_mut(); };
+    Box::into_raw(Box::new(key))
+}
+
 /*
  * Ed25519PublicKey
  */
@@ -168,6 +175,13 @@ pub extern "C" fn ed25519publickey_to_base64(ptr: *mut Ed25519PublicKey) -> *mut
     copy_str(key.to_base64())
 }
 
+#[no_mangle]
+pub extern "C" fn ed25519publickey_from_base64(ptr: *const u8, len: usize) -> *mut Ed25519PublicKey {
+    let Ok(str) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(ptr, len) }) else { return std::ptr::null_mut(); };
+    let Ok(key) = Ed25519PublicKey::from_base64(str) else { return std::ptr::null_mut(); };
+    Box::into_raw(Box::new(key))
+}
+
 /*
  * Ed25519Signature
  */
@@ -176,6 +190,13 @@ pub extern "C" fn ed25519publickey_to_base64(ptr: *mut Ed25519PublicKey) -> *mut
 pub extern "C" fn ed25519signature_to_base64(ptr: *mut Ed25519Signature) -> *mut c_char {
     let sig: &mut Ed25519Signature = unsafe { &mut *ptr };
     copy_str(sig.to_base64())
+}
+
+#[no_mangle]
+pub extern "C" fn ed25519signature_from_base64(ptr: *const u8, len: usize) -> *mut Ed25519Signature {
+    let Ok(str) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(ptr, len) }) else { return std::ptr::null_mut(); };
+    let Ok(sig) = Ed25519Signature::from_base64(str) else { return std::ptr::null_mut(); };
+    Box::into_raw(Box::new(sig))
 }
 
 /*
