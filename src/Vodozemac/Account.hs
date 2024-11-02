@@ -1,5 +1,3 @@
-{-# LANGUAGE TupleSections #-}
-
 module Vodozemac.Account where
 
 import Control.Exception (bracket)

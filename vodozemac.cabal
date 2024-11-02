@@ -34,6 +34,7 @@ common common
         ImportQualifiedPost
         NoImplicitPrelude
         ScopedTypeVariables
+        TupleSections
     build-depends:
         aeson,
         base >= 4 && < 5,
@@ -49,6 +50,9 @@ library
         Vodozemac.Ed25519Signature
         Vodozemac.FallbackKey
         Vodozemac.KeyId
+        Vodozemac.Megolm.GroupSession
+        Vodozemac.Megolm.InboundGroupSession
+        Vodozemac.Megolm.SessionKey
         Vodozemac.Olm.Message
         Vodozemac.Olm.Session
         Vodozemac.Raw.Account
@@ -57,6 +61,9 @@ library
         Vodozemac.Raw.Ed25519Signature
         Vodozemac.Raw.FallbackKey
         Vodozemac.Raw.KeyId
+        Vodozemac.Raw.Megolm.GroupSession
+        Vodozemac.Raw.Megolm.InboundGroupSession
+        Vodozemac.Raw.Megolm.SessionKey
         Vodozemac.Raw.Olm.Message
         Vodozemac.Raw.Olm.Session
     other-modules:

@@ -103,6 +103,7 @@ pub extern "C" fn create_outbound_session(
     let identity_key = unsafe { &*identity_key_ptr };
     let one_time_key = unsafe { &*one_time_key_ptr };
     let session = acc.create_outbound_session(
+        // matrix only uses version 1
         olm::SessionConfig::version_1(),
         *identity_key,
         *one_time_key,
@@ -234,7 +235,7 @@ pub extern "C" fn olm_session_decrypt_json(
     len: usize,
     plaintext_len_ptr: *mut usize,
 ) -> *mut u8 {
-    let sess: &mut olm::Session = unsafe { &mut *ptr };
+    let sess = unsafe { &mut *ptr };
     let ciphertext_json = unsafe { std::slice::from_raw_parts(data, len) };
     let Ok(ciphertext) = serde_json::from_slice(ciphertext_json) else {
         return std::ptr::null_mut();
@@ -250,4 +251,95 @@ pub extern "C" fn olm_session_decrypt_json(
             plaintext_slice.as_mut_ptr()
         }
     }
+}
+
+/*
+ * Megolm Sessionkey
+ */
+
+#[no_mangle]
+pub extern "C" fn megolm_session_key_to_base64(ptr: *mut megolm::SessionKey) -> *mut c_char {
+    let sig: &mut megolm::SessionKey = unsafe { &mut *ptr };
+    copy_str(sig.to_base64())
+}
+
+#[no_mangle]
+pub extern "C" fn megolm_session_key_from_base64(ptr: *const u8, len: usize) -> *mut megolm::SessionKey {
+    let Ok(str) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(ptr, len) }) else { return std::ptr::null_mut(); };
+    let Ok(sig) = megolm::SessionKey::from_base64(str) else { return std::ptr::null_mut(); };
+    Box::into_raw(Box::new(sig))
+}
+
+/*
+ * Megolm GroupSession
+ */
+
+#[no_mangle]
+pub extern "C" fn megolm_new_group_session() -> *mut megolm::GroupSession {
+    Box::into_raw(Box::new(megolm::GroupSession::new(
+        megolm::SessionConfig::version_1()
+    )))
+}
+
+#[no_mangle]
+pub extern "C" fn megolm_group_session_key(ptr: *const megolm::GroupSession) -> *mut megolm::SessionKey {
+    let sess = unsafe { &*ptr };
+    Box::into_raw(Box::new(sess.session_key()))
+}
+
+#[no_mangle]
+pub extern "C" fn megolm_group_session_id(ptr: *const megolm::GroupSession) -> *mut c_char {
+    let sess = unsafe { &*ptr };
+    copy_str(sess.session_id())
+}
+
+#[no_mangle]
+pub extern "C" fn megolm_group_session_encrypt_to_b64(
+    ptr: *mut megolm::GroupSession,
+    data: *const u8,
+    len: usize,
+) -> *mut c_char {
+    let sess = unsafe { &mut *ptr };
+    let plaintext = unsafe { std::slice::from_raw_parts(data, len) };
+    let message = sess.encrypt(plaintext);
+    copy_str(message.to_base64())
+}
+
+/*
+ * Megolm InboundGroupSession
+ */
+
+#[no_mangle]
+pub extern "C" fn megolm_new_inbound_group_session(key: *const megolm::SessionKey) -> *mut megolm::InboundGroupSession {
+    let key = unsafe { &*key };
+    Box::into_raw(Box::new(megolm::InboundGroupSession::new(
+        key,
+        megolm::SessionConfig::version_1()
+    )))
+}
+
+#[no_mangle]
+pub extern "C" fn megolm_inbound_group_session_id(ptr: *const megolm::InboundGroupSession) -> *mut c_char {
+    let sess = unsafe { &*ptr };
+    copy_str(sess.session_id())
+}
+
+#[no_mangle]
+pub extern "C" fn megolm_inbound_group_session_decrypt_b64(
+    ptr: *mut megolm::InboundGroupSession,
+    data: *const u8,
+    len: usize,
+    message_index_ptr: *mut u32,
+    plaintext_len_ptr: *mut usize,
+) -> *mut u8 {
+    let sess = unsafe { &mut *ptr };
+    let Ok(ciphertext_b64) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(data, len) }) else { return std::ptr::null_mut(); };
+    let Ok(ciphertext) = megolm::MegolmMessage::from_base64(ciphertext_b64) else { return std::ptr::null_mut(); };
+    let Ok(megolm::DecryptedMessage{plaintext, message_index}) = sess.decrypt(&ciphertext) else { return std::ptr::null_mut(); };
+    let plaintext_slice = Box::leak(plaintext.into_boxed_slice());
+    unsafe {
+        *message_index_ptr = message_index;
+        *plaintext_len_ptr = plaintext_slice.len();
+    }
+    plaintext_slice.as_mut_ptr()
 }

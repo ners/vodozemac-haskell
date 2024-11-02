@@ -6,16 +6,18 @@ module VodozemacSpec where
 import Data.ByteString (ByteString)
 import Data.Functor (void)
 import Test.Hspec
+import Vodozemac.Account (curve25519Key)
 import Vodozemac.Account qualified
 import Vodozemac.Curve25519PublicKey qualified
 import Vodozemac.Ed25519PublicKey qualified
 import Vodozemac.Ed25519Signature qualified
 import Vodozemac.FallbackKey (FallbackKey (..))
 import Vodozemac.KeyId qualified
+import Vodozemac.Megolm.GroupSession qualified
+import Vodozemac.Megolm.InboundGroupSession qualified
 import Vodozemac.Olm.Message (Message (PreKeyMessage))
 import Vodozemac.Olm.Session qualified
 import Prelude
-import Vodozemac.Account (curve25519Key)
 
 shouldReturnOver :: (Show a1, Eq a1) => (a2 -> IO a1) -> IO a2 -> a2 -> IO ()
 shouldReturnOver f a b = do
@@ -39,15 +41,18 @@ spec :: Spec
 spec = do
     it "encodes and decodes" $ Vodozemac.Account.withAccount \account -> do
         curve25519Key <- Vodozemac.Account.curve25519Key account
-        shouldReturnOver Vodozemac.Curve25519PublicKey.toBase64
+        shouldReturnOver
+            Vodozemac.Curve25519PublicKey.toBase64
             (Vodozemac.Curve25519PublicKey.toBase64 curve25519Key >>= Vodozemac.Curve25519PublicKey.fromBase64)
             curve25519Key
         ed25519Key <- Vodozemac.Account.ed25519Key account
-        shouldReturnOver Vodozemac.Ed25519PublicKey.toBase64
+        shouldReturnOver
+            Vodozemac.Ed25519PublicKey.toBase64
             (Vodozemac.Ed25519PublicKey.toBase64 ed25519Key >>= Vodozemac.Ed25519PublicKey.fromBase64)
             ed25519Key
         ed25519Signature <- Vodozemac.Account.sign account "junk"
-        shouldReturnOver Vodozemac.Ed25519Signature.toBase64
+        shouldReturnOver
+            Vodozemac.Ed25519Signature.toBase64
             (Vodozemac.Ed25519Signature.toBase64 ed25519Signature >>= Vodozemac.Ed25519Signature.fromBase64)
             ed25519Signature
 
@@ -65,16 +70,7 @@ spec = do
         shouldNotBeOver Vodozemac.KeyId.toBase64 keyId1 keyId3
         shouldNotBeOver Vodozemac.Curve25519PublicKey.toBase64 pubKey1 pubKey3
 
-    it "signs" $ Vodozemac.Account.withAccount \account -> do
-        print =<< Vodozemac.Ed25519PublicKey.toBase64 =<< Vodozemac.Account.ed25519Key account
-        signature <- Vodozemac.Account.sign account "Hello world!"
-        print =<< Vodozemac.Ed25519Signature.toBase64 signature
-
-    it "has keys" $ Vodozemac.Account.withAccount \account -> do
-        print =<< Vodozemac.Curve25519PublicKey.toBase64 =<< Vodozemac.Account.curve25519Key account
-        print =<< Vodozemac.Ed25519PublicKey.toBase64 =<< Vodozemac.Account.ed25519Key account
-
-    it "sessions" $ Vodozemac.Account.withAccount \sender -> Vodozemac.Account.withAccount \receiver -> do
+    it "olms" $ Vodozemac.Account.withAccount \sender -> Vodozemac.Account.withAccount \receiver -> do
         senderIdentityKey <- Vodozemac.Account.curve25519Key sender
         receiverIdentityKey <- Vodozemac.Account.curve25519Key receiver
 
@@ -98,3 +94,13 @@ spec = do
         message <- Vodozemac.Olm.Session.encrypt senderSession expectedPlaintext
         Just actualPlaintext <- Vodozemac.Olm.Session.decrypt receiverSession message
         actualPlaintext `shouldBe` expectedPlaintext
+
+    it "megolms" do
+        senderSession <- Vodozemac.Megolm.GroupSession.new
+        sessionKey <- Vodozemac.Megolm.GroupSession.key senderSession
+        receiverSession <- Vodozemac.Megolm.InboundGroupSession.new sessionKey
+        let expectedPlaintext = "I am the walrus" :: ByteString
+        message <- Vodozemac.Megolm.GroupSession.encrypt senderSession expectedPlaintext
+        Just (actualPlaintext, messageIndex) <- Vodozemac.Megolm.InboundGroupSession.decrypt receiverSession message
+        actualPlaintext `shouldBe` expectedPlaintext
+        messageIndex `shouldBe` 0
