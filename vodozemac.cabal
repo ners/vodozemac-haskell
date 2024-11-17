@@ -27,6 +27,7 @@ common common
         -Wno-missing-import-lists
         -Wno-missing-kind-signatures
         -Wno-all-missed-specialisations
+        -- -v -keep-tmp-files
     default-extensions:
         BlockArguments
         DerivingStrategies
@@ -37,8 +38,9 @@ common common
         ScopedTypeVariables
         TemplateHaskell
         TupleSections
+        TypeApplications
+        ViewPatterns
     build-depends:
-        aeson,
         base >= 4 && < 5,
         bytestring,
 
@@ -48,10 +50,21 @@ library
     exposed-modules:
         Vodozemac
         Vodozemac.Curve25519PublicKey
+        Vodozemac.Ed25519PublicKey
+        Vodozemac.Ed25519Signature
+        Vodozemac.KeyId
+        Vodozemac.Megolm.GroupSession
+        Vodozemac.Megolm.InboundGroupSession
+        Vodozemac.Megolm.SessionKey
+        Vodozemac.Olm.Account
+        Vodozemac.Olm.Message
+        Vodozemac.Olm.Session
     other-modules:
         Vodozemac.Util
     build-depends:
-        inline-rust
+        aeson,
+        inline-rust,
+        language-rust
 
 test-suite spec
     import:           common

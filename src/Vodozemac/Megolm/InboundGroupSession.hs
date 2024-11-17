@@ -1,41 +1,73 @@
 module Vodozemac.Megolm.InboundGroupSession where
 
 import Data.ByteString (ByteString)
-import Data.ByteString.Unsafe qualified as ByteString
+import Data.Functor ((<&>))
 import Foreign
-import Vodozemac.Megolm.SessionKey (SessionKey (..))
-import Vodozemac.Raw.Megolm.InboundGroupSession qualified as Raw.Megolm (InboundGroupSession)
-import Vodozemac.Raw.Megolm.InboundGroupSession qualified as Raw.Megolm.InboundGroupSession
-import Vodozemac.Raw.Util qualified as Raw
+import Language.Rust.Inline
+import Language.Rust.Quote (ty)
+import System.IO.Unsafe (unsafePerformIO)
+import Vodozemac.Megolm.SessionKey (SessionKey (..), SessionKey')
+import Vodozemac.Util
 import Prelude
 
-newtype InboundGroupSession = InboundGroupSession Raw.Megolm.InboundGroupSession
+data InboundGroupSession'
 
-instance Storable InboundGroupSession where
-    sizeOf _ = Raw.ptrSize
-    alignment _ = Raw.ptrAlignment
-    peek ptr = InboundGroupSession <$> peek (castPtr ptr)
-    poke ptr (InboundGroupSession sess) = poke (castPtr ptr) sess
+newtype InboundGroupSession = InboundGroupSession (ForeignPtr InboundGroupSession')
 
-new :: SessionKey -> IO InboundGroupSession
-new (SessionKey key) = InboundGroupSession <$> Raw.Megolm.InboundGroupSession.new_session key
+setCrateModule
 
-id :: InboundGroupSession -> IO ByteString
-id (InboundGroupSession sess) = Raw.cstringToByteString =<< Raw.Megolm.InboundGroupSession.id sess
+[rust|
+use vodozemac::*;
+use vodozemac::megolm::*;
+|]
+
+extendContext basic
+extendContext ffi
+extendContext functions
+extendContext pointers
+extendContext prelude
+extendContext (singleton [ty| SessionKey |] [t|SessionKey'|])
+extendContext (singleton [ty| InboundGroupSession |] [t|InboundGroupSession'|])
+
+[rust|
+extern "C" fn free (ptr: *mut InboundGroupSession) {
+    let key = unsafe { Box::from_raw(ptr) };
+    drop(key)
+}
+|]
+
+free :: FunPtr (Ptr InboundGroupSession' -> IO ())
+free = [rust| extern fn (*mut InboundGroupSession) { free }|]
+
+wrap :: Ptr InboundGroupSession' -> InboundGroupSession
+wrap = unsafePerformIO . fmap InboundGroupSession . newForeignPtr Vodozemac.Megolm.InboundGroupSession.free
+
+newInboundGroupSession :: SessionKey -> IO InboundGroupSession
+newInboundGroupSession (SessionKey keyPtr) = withForeignPtr keyPtr \key ->
+    [rustIO| *mut InboundGroupSession {
+        let key = unsafe { &*$(key: *const SessionKey) };
+        Box::into_raw(Box::new(megolm::InboundGroupSession::new(
+            key,
+            megolm::SessionConfig::version_1()
+        )))
+    } |]
+        <&> wrap
+
+sessionId :: InboundGroupSession -> ByteString
+sessionId (InboundGroupSession sessPtr) = unsafePerformIO . withForeignPtr sessPtr $ \sess ->
+    getByteString
+        [rust| (*mut u8, usize) {
+            let sess = unsafe { &*$(sess: *const InboundGroupSession) };
+            crate::copy_str(sess.session_id())
+        } |]
 
 decrypt :: InboundGroupSession -> ByteString -> IO (Maybe (ByteString, Word32))
-decrypt (InboundGroupSession sess) message = do -- Raw.Megolm.InboundGroupSession.decrypt
-    alloca $ \messageIndexPtr ->
-        alloca $ \plaintextSizePtr -> do
-            plaintextPtr <-
-                ByteString.unsafeUseAsCStringLen
-                    message
-                    ( \(input, inputLen) ->
-                        Raw.Megolm.InboundGroupSession.decrypt sess input inputLen messageIndexPtr plaintextSizePtr
-                    )
-            if plaintextPtr == nullPtr
-                then pure Nothing
-                else do
-                    plaintextSize <- peek plaintextSizePtr
-                    messageIndex <- peek messageIndexPtr
-                    Just . (, messageIndex) <$> ByteString.unsafePackCStringFinalizer plaintextPtr plaintextSize (Raw.free_bytestring plaintextPtr plaintextSize)
+decrypt (InboundGroupSession sessPtr) ciphertext = withForeignPtr sessPtr \sess -> withByteString ciphertext \dataPtr len ->
+    [rustIO| Option<((*mut u8, usize), u32)> {
+        let sess = unsafe { &mut *$(sess: *mut InboundGroupSession) };
+        let ciphertext = unsafe { std::slice::from_raw_parts($(dataPtr: *const u8), $(len: usize)) };
+        let message = megolm::MegolmMessage::from_bytes(ciphertext).ok()?;
+        let megolm::DecryptedMessage{plaintext, message_index} = sess.decrypt(&message).ok()?;
+        Some((crate::copy_bytes(plaintext), message_index))
+    } |]
+        >>= mapM \(bs', messageIndex) -> getByteString bs' <&> (,messageIndex)

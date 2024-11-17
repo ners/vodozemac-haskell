@@ -24,7 +24,7 @@
       sourceFilter = root: with lib.fileset; toSource {
         inherit root;
         fileset = fileFilter
-          (file: any file.hasExt [ "cabal" "hs" "md" ])
+          (file: any file.hasExt [ "cabal" "hs" "lock" "md" ])
           root;
       };
       pname = "vodozemac";
@@ -50,7 +50,10 @@
             packageOverrides = with prev.haskell.lib.compose; lib.composeManyExtensions [
               prev.haskell.packageOverrides
               (hfinal: hprev: {
-                ${pname} = hfinal.callCabal2nix pname src { };
+                ${pname} = (hfinal.callCabal2nix pname src { }).overrideAttrs (attrs: {
+                  cargoDeps = prev.rustPlatform.importCargoLock { lockFile = ./Cargo.lock; };
+                  nativeBuildInputs = (attrs.nativeBuildInputs or []) ++ [ prev.rustPlatform.cargoSetupHook ];
+                });
               })
             ];
           };

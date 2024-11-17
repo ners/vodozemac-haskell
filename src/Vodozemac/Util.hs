@@ -1,43 +1,56 @@
-{-# LANGUAGE ViewPatterns #-}
-
 module Vodozemac.Util where
 
 import Data.ByteString (ByteString)
 import Data.ByteString.Unsafe qualified as ByteString
 import Foreign
-import Foreign.C
 import Language.Rust.Inline
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude
 
+infixl 4 <$$>
+
+(<$$>) :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
+(<$$>) = fmap . fmap
+
+infixl 1 <&&>
+
+(<&&>) :: (Functor f1) => (Functor f2) => f1 (f2 a) -> (a -> b) -> f1 (f2 b)
+(<&&>) = flip (<$$>)
+
 extendContext basic
+extendContext ffi
 extendContext pointers
 extendContext prelude
 setCrateModule
 
 [rust|
-use std::ffi::CString;
-
-fn copy_str(source: String) -> *mut c_char {
-    CString::new(source.into_bytes()).unwrap().into_raw()
+pub fn copy_bytes(source: Vec<u8>) -> (*mut u8, usize) {
+    let bytes = Box::leak(source.into_boxed_slice());
+    let len = bytes.len();
+    (bytes.as_mut_ptr(), len)
 }
 
-#[no_mangle]
-pub extern "C" fn free_cstring(ptr: *mut c_char) {
-    let cstring = unsafe { CString::from_raw(ptr) };
-    drop(cstring)
+pub fn copy_str(source: String) -> (*mut u8, usize) {
+    copy_bytes(source.into_bytes())
 }
 
-// Box<[u8]>
-#[no_mangle]
-pub extern "C" fn free_bytestring(ptr: *mut u8, size: usize) {
+pub fn free_bytestring(ptr: *mut u8, size: usize) {
     let bytes = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, size)) };
     drop(bytes)
 }
 |]
 
-freeCstring :: Ptr CChar -> IO ()
-freeCstring ptr = pure [rust| () { free_cstring($(ptr: *mut std::ffi::c_char)); }|]
+freeByteString :: (Integral a) => Ptr Word8 -> a -> IO ()
+freeByteString ptr (fromIntegral -> len) = [rustIO| () { free_bytestring($(ptr: *mut u8), $(len: usize)); }|]
 
-freeBytestring :: Ptr Word8 -> Int -> IO ()
-freeBytestring ptr (fromIntegral -> len) = pure [rust| () { free_bytestring($(ptr: *mut u8), $(len: usize)); }|]
+getByteString :: (Integral a) => (Ptr Word8, a) -> IO ByteString
+getByteString (ptr, len) = ByteString.unsafePackCStringFinalizer (castPtr ptr) (fromIntegral len) (freeByteString ptr len)
+
+withByteString' :: ByteString -> (Ptr Word8 -> Word -> a) -> a
+withByteString' bs f = unsafePerformIO $ withByteString bs ((pure .) . f)
+
+class ToBase64 a where
+    toBase64 :: a -> ByteString
+
+class FromBase64 a where
+    fromBase64 :: ByteString -> Maybe a
