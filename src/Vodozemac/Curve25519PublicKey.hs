@@ -3,22 +3,29 @@ module Vodozemac.Curve25519PublicKey where
 import Data.ByteString (ByteString)
 import Data.ByteString.Unsafe qualified as ByteString
 import Foreign
-import Vodozemac.Raw.Curve25519PublicKey qualified as Raw (Curve25519PublicKey)
-import Vodozemac.Raw.Curve25519PublicKey qualified as Raw.Curve25519PublicKey
-import Vodozemac.Raw.Util qualified as Raw
+import Language.Rust.Inline
+import System.IO.Unsafe (unsafePerformIO)
 import Prelude
 
-newtype Curve25519PublicKey = Curve25519PublicKey Raw.Curve25519PublicKey
-    deriving stock (Eq, Show)
+extendContext prelude
+extendContext pointers
+extendContext basic
+setCrateModule
 
-instance Storable Curve25519PublicKey where
-    sizeOf _ = Raw.ptrSize
-    alignment _ = Raw.ptrAlignment
-    peek ptr = Curve25519PublicKey <$> peek (castPtr ptr)
-    poke ptr (Curve25519PublicKey key) = poke (castPtr ptr) key
+[rust|
+use std::ffi::CString;
+|]
 
-toBase64 :: Curve25519PublicKey -> IO ByteString
-toBase64 (Curve25519PublicKey key) = Raw.cstringToByteString =<< Raw.Curve25519PublicKey.to_base64 key
+newtype Curve25519PublicKey = Curve25519PublicKey (ForeignPtr ())
 
-fromBase64 :: ByteString -> IO Curve25519PublicKey
-fromBase64 str = Curve25519PublicKey <$> ByteString.unsafeUseAsCStringLen str (uncurry Raw.Curve25519PublicKey.from_base64)
+toBase64 :: Curve25519PublicKey -> ByteString
+toBase64 (Curve25519PublicKey ptr) = unsafePerformIO $ ByteString.unsafePackCStringFinalizer cstr (fromIntegral len) (pure freeBytestring)
+  where
+    (cstr, len) =
+        [rust| (*const u8, usize) {
+            let key: &mut Curve25519PublicKey = unsafe { &mut *ptr };
+            copy_str(key.to_base64())
+        }|]
+
+fromBase64 :: ByteString -> Maybe Curve25519PublicKey
+fromBase64 = undefined

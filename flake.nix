@@ -6,7 +6,10 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    crane.url = "github:ipetkov/crane";
+    inline-rust = {
+      url = "github:ners/inline-rust";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
@@ -21,15 +24,7 @@
       sourceFilter = root: with lib.fileset; toSource {
         inherit root;
         fileset = fileFilter
-          (file: any file.hasExt [
-            "cabal"
-            "hs"
-            "hsc"
-            "lock"
-            "md"
-            "rs"
-            "toml"
-          ])
+          (file: any file.hasExt [ "cabal" "hs" "md" ])
           root;
       };
       pname = "vodozemac";
@@ -49,16 +44,8 @@
         pkgs.haskell.packages;
       hpsFor = pkgs: { default = pkgs.haskellPackages; } // ghcsFor pkgs;
       overlay = lib.composeManyExtensions [
+        inputs.inline-rust.overlays.default
         (final: prev: {
-          vodozemac_hs =
-            let
-              crane = inputs.crane.mkLib final;
-              strictDeps = true;
-              cargoArtifacts = crane.buildDepsOnly { inherit src strictDeps; };
-              package = crane.buildPackage { inherit src strictDeps cargoArtifacts; };
-            in
-              package;
-
           haskell = prev.haskell // {
             packageOverrides = with prev.haskell.lib.compose; lib.composeManyExtensions [
               prev.haskell.packageOverrides

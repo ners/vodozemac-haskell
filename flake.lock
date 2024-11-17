@@ -1,27 +1,49 @@
 {
   "nodes": {
-    "crane": {
+    "inline-rust": {
+      "inputs": {
+        "language-rust": "language-rust",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
-        "lastModified": 1730504891,
-        "narHash": "sha256-Fvieht4pai+Wey7terllZAKOj0YsaDP0e88NYs3K/Lo=",
-        "owner": "ipetkov",
-        "repo": "crane",
-        "rev": "8658adcdad49b8f2c6cbf0cc3cb4b4db988f7638",
+        "lastModified": 1731847748,
+        "narHash": "sha256-CF5CKSRIUOkkIJvSX09l6t2NN4w+qKmnxG4c1YAwBNE=",
+        "owner": "ners",
+        "repo": "inline-rust",
+        "rev": "5b0088d2e36942346b1ead5ffd4d762c2cd488b4",
         "type": "github"
       },
       "original": {
-        "owner": "ipetkov",
-        "repo": "crane",
+        "owner": "ners",
+        "repo": "inline-rust",
+        "type": "github"
+      }
+    },
+    "language-rust": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1729283594,
+        "narHash": "sha256-nVexe9Jrj0DtpjyPX+S2t/Op2iJyU1IRncW/BO8Ties=",
+        "owner": "GaloisInc",
+        "repo": "language-rust",
+        "rev": "ae59c7355b2fbbe818c1fdd23894df6bfa0432e5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GaloisInc",
+        "repo": "language-rust",
         "type": "github"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1730200266,
-        "narHash": "sha256-l253w0XMT8nWHGXuXqyiIC/bMvh1VRszGXgdpQlfhvU=",
+        "lastModified": 1731676054,
+        "narHash": "sha256-OZiZ3m8SCMfh3B6bfGC/Bm4x3qc1m2SVEAlkV6iY7Yg=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "807e9154dcb16384b1b765ebe9cd2bba2ac287fd",
+        "rev": "5e4fbfb6b3de1aa2872b76d49fafc942626e2add",
         "type": "github"
       },
       "original": {
@@ -33,7 +55,7 @@
     },
     "root": {
       "inputs": {
-        "crane": "crane",
+        "inline-rust": "inline-rust",
         "nixpkgs": "nixpkgs"
       }
     }
