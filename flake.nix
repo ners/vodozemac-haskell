@@ -36,7 +36,7 @@
             majorMinor = versions.majorMinor version;
             ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
           in
-          if hp ? ghc && ! acc ? ${ghcName} && versionAtLeast version "8.10" && versionOlder version "9.11"
+          if hp ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.2" && versionOlder version "9.11"
           then acc // { ${ghcName} = hp; }
           else acc
         )

@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1731867138,
-        "narHash": "sha256-IYZJ5+REACHAdMCbFrqA6rVxJa8whtTJ9Xgwk6KPwdU=",
+        "lastModified": 1731893813,
+        "narHash": "sha256-tEDLLodvsd2V+y+8eI+oGTAFfDJ5ewPzSUaJbaoJbWk=",
         "owner": "ners",
         "repo": "inline-rust",
-        "rev": "6a97d3446c48e64d980e943ed33cc6cba8ba74b1",
+        "rev": "bb42cd4f49cfd45b4293280e3f62a7acbc82dbe7",
         "type": "github"
       },
       "original": {
