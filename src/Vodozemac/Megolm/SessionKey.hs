@@ -3,7 +3,6 @@
 module Vodozemac.Megolm.SessionKey where
 
 import Data.ByteString (ByteString)
-import Data.Functor ((<&>))
 import Foreign
 import Language.Rust.Inline
 import Language.Rust.Quote (ty)

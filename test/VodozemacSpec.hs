@@ -1,12 +1,13 @@
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module VodozemacSpec where
 
+import Control.Exception (SomeException)
 import Data.ByteString (ByteString)
 import Data.Functor (void)
 import Data.Maybe (fromJust)
+import Prelude
 import Test.Hspec
 import Vodozemac
 import Vodozemac.Megolm.GroupSession qualified
@@ -14,7 +15,6 @@ import Vodozemac.Megolm.InboundGroupSession qualified
 import Vodozemac.Olm.Account qualified
 import Vodozemac.Olm.Message (Message (PreKeyMessage))
 import Vodozemac.Olm.Session qualified
-import Prelude
 
 shouldBeOver :: (Eq b, Show b) => (a -> b) -> a -> a -> IO ()
 shouldBeOver f a b = f a `shouldBe` f b
@@ -59,26 +59,33 @@ spec = do
         let senderIdentityKey = Vodozemac.Olm.Account.curve25519Key sender
         let receiverIdentityKey = Vodozemac.Olm.Account.curve25519Key receiver
 
+        ([receiverOneTimeKey], []) <- Vodozemac.Olm.Account.generateOneTimeKeys receiver 1
         void $ Vodozemac.Olm.Account.generateFallbackKey receiver
         Just (_, receiverFallbackKey) <- Vodozemac.Olm.Account.fallbackKey receiver
         Vodozemac.Olm.Account.markKeysAsPublished receiver
 
-        let senderSession = Vodozemac.Olm.Account.createOutboundSession sender receiverIdentityKey receiverFallbackKey
-        let expectedPlaintext = "Hello!" :: ByteString
-        PreKeyMessage preKeyMessage <- Vodozemac.Olm.Session.encrypt senderSession expectedPlaintext
+        let testSessionWith key = do
+                let senderSession = Vodozemac.Olm.Account.createOutboundSession sender receiverIdentityKey key
+                let expectedPlaintext = "Hello!" :: ByteString
+                PreKeyMessage preKeyMessage <- Vodozemac.Olm.Session.encrypt senderSession expectedPlaintext
 
-        Just (receiverSession, actualPlaintext) <- Vodozemac.Olm.Account.createInboundSession receiver senderIdentityKey preKeyMessage
-        actualPlaintext `shouldBe` expectedPlaintext
+                Just (receiverSession, actualPlaintext) <- Vodozemac.Olm.Account.createInboundSession receiver senderIdentityKey preKeyMessage
+                actualPlaintext `shouldBe` expectedPlaintext
 
-        let expectedPlaintext = "Goodbye ..." :: ByteString
-        message <- Vodozemac.Olm.Session.encrypt receiverSession expectedPlaintext
-        Just actualPlaintext <- Vodozemac.Olm.Session.decrypt senderSession message
-        actualPlaintext `shouldBe` expectedPlaintext
+                let expectedPlaintext = "Goodbye ..." :: ByteString
+                message <- Vodozemac.Olm.Session.encrypt receiverSession expectedPlaintext
+                Just actualPlaintext <- Vodozemac.Olm.Session.decrypt senderSession message
+                actualPlaintext `shouldBe` expectedPlaintext
 
-        let expectedPlaintext = "Just one more thing" :: ByteString
-        message <- Vodozemac.Olm.Session.encrypt senderSession expectedPlaintext
-        Just actualPlaintext <- Vodozemac.Olm.Session.decrypt receiverSession message
-        actualPlaintext `shouldBe` expectedPlaintext
+                let expectedPlaintext = "Just one more thing" :: ByteString
+                message <- Vodozemac.Olm.Session.encrypt senderSession expectedPlaintext
+                Just actualPlaintext <- Vodozemac.Olm.Session.decrypt receiverSession message
+                actualPlaintext `shouldBe` expectedPlaintext
+
+        testSessionWith receiverOneTimeKey
+        testSessionWith receiverOneTimeKey `shouldThrow` \(_ :: SomeException) -> True
+        testSessionWith receiverFallbackKey
+        testSessionWith receiverFallbackKey
 
     it "megolms" do
         senderSession <- Vodozemac.Megolm.GroupSession.newGroupSession

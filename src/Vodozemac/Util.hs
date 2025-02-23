@@ -1,5 +1,6 @@
-module Vodozemac.Util where
+module Vodozemac.Util (module Vodozemac.Util, module Data.Functor) where
 
+import Data.Functor
 import Data.ByteString (ByteString)
 import Prelude
 

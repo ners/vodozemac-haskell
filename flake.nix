@@ -7,7 +7,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     inline-rust = {
-      url = "github:ners/inline-rust";
+      url = "github:ners/inline-rust/marshalable";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

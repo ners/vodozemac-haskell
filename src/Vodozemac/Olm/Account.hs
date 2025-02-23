@@ -8,6 +8,7 @@ module Vodozemac.Olm.Account
     , ed25519Key
     , sign
     , generateFallbackKey
+    , generateOneTimeKeys
     , fallbackKey
     , markKeysAsPublished
     , createOutboundSession
@@ -29,6 +30,7 @@ import Vodozemac.KeyId (KeyId (..), KeyId')
 import Vodozemac.Olm.Session (Session (..), Session')
 import Vodozemac.Util
 import Prelude
+import Data.Bifunctor (bimap)
 
 data Account'
 
@@ -42,12 +44,13 @@ use vodozemac::olm::*;
 |]
 
 extendContext basic
+extendContext bytestrings
 extendContext ffi
+extendContext foreignPointers
 extendContext functions
 extendContext pointers
-extendContext foreignPointers
-extendContext bytestrings
 extendContext prelude
+extendContext vectors
 extendContext (singleton [ty| Curve25519PublicKey |] [t|Curve25519PublicKey'|])
 extendContext (singleton [ty| Ed25519PublicKey |] [t|Ed25519PublicKey'|])
 extendContext (singleton [ty| Ed25519Signature |] [t|Ed25519Signature'|])
@@ -85,6 +88,16 @@ generateFallbackKey (Account acc) =
         $(acc: &mut Account).generate_fallback_key().map(|key| Box::new(key).into())
     } |]
         <&&> Curve25519PublicKey
+
+generateOneTimeKeys :: Account -> Word -> IO ([Curve25519PublicKey], [Curve25519PublicKey])
+generateOneTimeKeys (Account acc) count =
+    [rustIO| (Vec<ForeignPtr<Curve25519PublicKey>>, Vec<ForeignPtr<Curve25519PublicKey>>) {
+        let OneTimeKeyGenerationResult { created, removed } = $(acc: &mut Account).generate_one_time_keys($(count: usize));
+        let created = created.into_iter().map(|key| Box::new(key).into()).collect::<Vec<ForeignPtr<_>>>();
+        let removed = removed.into_iter().map(|key| Box::new(key).into()).collect::<Vec<ForeignPtr<_>>>();
+        (created, removed)
+    } |]
+        <&> bimap (fmap Curve25519PublicKey) (fmap Curve25519PublicKey)
 
 fallbackKey :: Account -> IO (Maybe (KeyId, Curve25519PublicKey))
 fallbackKey (Account acc) =
