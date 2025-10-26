@@ -24,44 +24,49 @@
       sourceFilter = root: with lib.fileset; toSource {
         inherit root;
         fileset = fileFilter
-          (file: any file.hasExt [ "cabal" "hs" "lock" "md" ])
+          (file: any file.hasExt [ "cabal" "hs" "md" "lock" ])
           root;
       };
-      pname = "vodozemac";
-      src = sourceFilter ./.;
       ghcsFor = pkgs: with lib; foldlAttrs
-        (acc: name: hp:
+        (acc: name: hp':
           let
-            version = getVersion hp.ghc;
+            hp = tryEval hp';
+            version = getVersion hp.value.ghc;
             majorMinor = versions.majorMinor version;
             ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
           in
-          if hp ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.2" && versionOlder version "9.11"
-          then acc // { ${ghcName} = hp; }
+          if hp.value ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.4" && versionOlder version "9.13"
+          then acc // { ${ghcName} = hp.value; }
           else acc
         )
         { }
         pkgs.haskell.packages;
       hpsFor = pkgs: { default = pkgs.haskellPackages; } // ghcsFor pkgs;
-      overlay = lib.composeManyExtensions [
-        inputs.inline-rust.overlays.default
-        (final: prev: {
-          haskell = prev.haskell // {
-            packageOverrides = with prev.haskell.lib.compose; lib.composeManyExtensions [
-              prev.haskell.packageOverrides
-              (hfinal: hprev: {
-                ${pname} = (hfinal.callCabal2nix pname src { }).overrideAttrs (attrs: {
-                  cargoDeps = prev.rustPlatform.importCargoLock { lockFile = ./Cargo.lock; };
-                  nativeBuildInputs = (attrs.nativeBuildInputs or []) ++ [ prev.rustPlatform.cargoSetupHook ];
-                });
-              })
-            ];
-          };
+      pname = "vodozemac";
+      pnames = [ pname ];
+      haskell-overlay = final: prev: lib.composeManyExtensions [
+        (inputs.inline-rust.overlays.haskell final prev)
+        (hfinal: hprev: with prev.haskell.lib.compose; {
+          ${pname} = (hfinal.callCabal2nix pname (sourceFilter ./.) { }).overrideAttrs (attrs: {
+            cargoDeps = prev.rustPlatform.importCargoLock { lockFile = ./Cargo.lock; };
+            nativeBuildInputs = (attrs.nativeBuildInputs or []) ++ [ prev.rustPlatform.cargoSetupHook ];
+          });
         })
       ];
+      overlay = final: prev: {
+        haskell = prev.haskell // {
+          packageOverrides = lib.composeManyExtensions [
+            prev.haskell.packageOverrides
+            (haskell-overlay final prev)
+          ];
+        };
+      };
     in
     {
-      overlays.default = overlay;
+      overlays = {
+        default = overlay;
+        haskell = haskell-overlay;
+      };
     }
     //
     foreach inputs.nixpkgs.legacyPackages
@@ -71,11 +76,20 @@
           hps = hpsFor pkgs;
           libs = pkgs.buildEnv {
             name = "${pname}-libs";
-            paths = map (hp: hp.${pname}) (attrValues hps);
+            paths =
+              lib.mapCartesianProduct
+                ({ hp, pname }: hp.${pname})
+                { hp = attrValues hps; pname = pnames; };
             pathsToLink = [ "/lib" ];
           };
-          docs = pkgs.haskell.lib.documentationTarball hps.default.${pname};
-          sdist = pkgs.haskell.lib.sdistTarball hps.default.${pname};
+          docs = pkgs.buildEnv {
+            name = "${pname}-docs";
+            paths = map (pname: pkgs.haskell.lib.documentationTarball hps.default.${pname}) pnames;
+          };
+          sdist = pkgs.buildEnv {
+            name = "${pname}-sdist";
+            paths = map (pname: pkgs.haskell.lib.sdistTarball hps.default.${pname}) pnames;
+          };
           docsAndSdist = pkgs.linkFarm "${pname}-docsAndSdist" { inherit docs sdist; };
         in
         {
@@ -89,12 +103,14 @@
           devShells.${system} =
             foreach hps (ghcName: hp: {
               ${ghcName} = hp.shellFor {
-                packages = ps: [ ps.${pname} ];
+                packages = ps: map (pname: ps.${pname}) pnames;
                 nativeBuildInputs = with pkgs'; with haskellPackages; [
+                  cabal-gild
                   cabal-install
                   cargo
                   fourmolu
-                ] ++ lib.optionals (lib.versionAtLeast (lib.getVersion hp.ghc) "9.2") [
+                  rustc
+                ] ++ lib.optionals (lib.versionAtLeast (lib.getVersion hp.ghc) "9.4") [
                   hp.haskell-language-server
                 ];
               };

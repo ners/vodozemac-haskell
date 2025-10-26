@@ -21,6 +21,6 @@ import Vodozemac.Util (FromBase64 (..), ToBase64 (..))
 
 extendContext basic
 setCrateRoot
-    [ ("vodozemac", "0.8.1")
-    , ("serde_json", "1.0.132")
+    [ ("vodozemac", "0.9.0")
+    , ("serde_json", "1.0.145")
     ]
